@@ -47,11 +47,11 @@
 
 <p class="lede">Autoregressive language models generate text irrevocably: each token conditions on every token before it. Once a mistaken inference enters the context, the downstream reasoning chain becomes polluted and the model is forced to rationalize a false premise. We propose Token-Level Backtracking, an inference-time mechanism that detects reasoning errors via unsupervised signals, uses a lightweight draft model to check whether a substantively different continuation exists, and rewinds the KV cache to the earlier “weak node” where the error began.</p>
 
-<p>On <span class="sc">GSM8K</span>, Llama&#8209;3.1&#8209;70B improves from 74.2% to 82.1% accuracy while retaining 88% of baseline throughput—without retraining, fine&#8209;tuning, or supervised verifiers.</p>
+<p>On <span class="sc">GSM8K</span><sup class="ref"><a href="#ref-1" title="Cobbe et al., 2021">1</a></sup>, Llama&#8209;3.1&#8209;70B improves from 74.2% to 82.1% accuracy while retaining 88% of baseline throughput—without retraining, fine&#8209;tuning, or supervised verifiers.</p>
 
 <h2 id="motivation"><span class="num">1.</span> Motivation</h2>
 
-<p>Existing inference-time strategies such as beam search, self-consistency, and multi-pass reflection address errors retrospectively by sampling entire replacement trajectories or critiquing finished outputs. While reasoning models like DeepSeek-R1-Zero naturally learn under reinforcement learning to emit self-correction tokens (“Wait&hellip;”) mid-solution, standard decoding still leaves the erroneous tokens in context. Rather than generating more text to argue past a mistake, token-level backtracking deletes back to the error locus and resamples.</p>
+<p>Existing inference-time strategies such as beam search, self-consistency<sup class="ref"><a href="#ref-2" title="Wang et al., 2023">2</a></sup>, and multi-pass reflection<sup class="ref"><a href="#ref-3" title="Madaan et al., 2023">3</a>,<a href="#ref-4" title="Shinn et al., 2023">4</a></sup> address errors retrospectively by sampling entire replacement trajectories or critiquing finished outputs. While reasoning models like DeepSeek-R1-Zero<sup class="ref"><a href="#ref-5" title="DeepSeek-AI, 2025">5</a></sup> naturally learn under reinforcement learning to emit self-correction tokens (“Wait&hellip;”) mid-solution, standard decoding still leaves the erroneous tokens in context. Rather than generating more text to argue past a mistake, token-level backtracking deletes back to the error locus and resamples.</p>
 
 <figure class="contrast">
   <p class="q">“A baker makes 12 trays of 18 cookies. She sells &frac34; of them and gives 15 away. How many are left?”</p>
@@ -98,7 +98,7 @@
 </dl>
 
 <h3>Speculative Divergence Gate</h3>
-<p>Rolling back discards the KV cache for the abandoned path. Before committing to a rollback, we repurpose speculative decoding as a semantic probe: a small draft model generates a short lookahead from the candidate checkpoint, and we measure the cosine distance between the hidden representations of the draft branch and the current trajectory:</p>
+<p>Rolling back discards the KV cache for the abandoned path. Before committing to a rollback, we repurpose speculative decoding<sup class="ref"><a href="#ref-6" title="Leviathan et al., 2023">6</a>,<a href="#ref-7" title="Chen et al., 2023">7</a></sup> as a semantic probe: a small draft model generates a short lookahead from the candidate checkpoint, and we measure the cosine distance between the hidden representations of the draft branch and the current trajectory:</p>
 
 <p class="display"><span><i>d</i> = 1 &minus; cos(<i>h</i><sub>draft</sub>,&thinsp;<i>h</i><sub>current</sub>),&emsp;rewind only if <i>d</i> &gt; <i>&tau;</i></span><span class="eq-num">(1)</span></p>
 
@@ -164,7 +164,7 @@
 
 <h2 id="results"><span class="num">3.</span> Results</h2>
 
-<p>Across four mathematical and coding benchmarks, Token-Level Backtracking outperforms standard decoding and post-hoc correction baselines while maintaining 88% of standard autoregressive throughput. Gains are largest on <span class="sc">AIME</span>, where solutions require 10–15 chained steps and a single arithmetic slip invalidates the final answer.</p>
+<p>Across four mathematical and coding benchmarks (<span class="sc">GSM8K</span><sup class="ref"><a href="#ref-1" title="Cobbe et al., 2021">1</a></sup>, <span class="sc">MATH</span><sup class="ref"><a href="#ref-8" title="Hendrycks et al., 2021">8</a></sup>, HumanEval<sup class="ref"><a href="#ref-9" title="Chen et al., 2021">9</a></sup>, and <span class="sc">AIME</span> ’24), Token-Level Backtracking outperforms standard decoding and post-hoc correction baselines while maintaining 88% of standard autoregressive throughput. Gains are largest on <span class="sc">AIME</span>, where solutions require 10–15 chained steps and a single arithmetic slip invalidates the final answer.</p>
 
 <figure class="table">
   <figcaption><span class="fig">Table 1.</span> Accuracy (%) with Llama-3.1-70B (8B draft) and throughput (tokens/s) on a single H100 GPU.</figcaption>
@@ -172,9 +172,9 @@
     <thead><tr><th>Method</th><th><button class="th-tab" data-k="GSM8K" aria-pressed="true" type="button"><span class="sc">GSM8K</span></button></th><th><button class="th-tab" data-k="MATH" aria-pressed="false" type="button"><span class="sc">MATH</span></button></th><th><button class="th-tab" data-k="HumanEval" aria-pressed="false" type="button">HumanEval</button></th><th><button class="th-tab" data-k="AIME" aria-pressed="false" type="button"><span class="sc">AIME</span> ’24</button></th><th>Tok/s</th></tr></thead>
     <tbody>
       <tr><td>Standard decoding</td><td>74.2</td><td>41.6</td><td>61.0</td><td>13.3</td><td><b>42.7</b></td></tr>
-      <tr><td>Self-consistency (<i>k</i> = 5)</td><td>78.6</td><td>45.2</td><td>63.4</td><td>16.7</td><td>9.1</td></tr>
-      <tr><td>Self-Refine (1 iter)</td><td>76.9</td><td>43.8</td><td>64.8</td><td>16.7</td><td>21.3</td></tr>
-      <tr><td>Tree of Thoughts (<i>b</i> = 3)</td><td>79.1</td><td>46.0</td><td>62.1</td><td>20.0</td><td>6.4</td></tr>
+      <tr><td>Self-consistency<sup class="ref"><a href="#ref-2" title="Wang et al., 2023">2</a></sup> (<i>k</i> = 5)</td><td>78.6</td><td>45.2</td><td>63.4</td><td>16.7</td><td>9.1</td></tr>
+      <tr><td>Self-Refine<sup class="ref"><a href="#ref-3" title="Madaan et al., 2023">3</a></sup> (1 iter)</td><td>76.9</td><td>43.8</td><td>64.8</td><td>16.7</td><td>21.3</td></tr>
+      <tr><td>Tree of Thoughts<sup class="ref"><a href="#ref-10" title="Yao et al., 2023">10</a></sup> (<i>b</i> = 3)</td><td>79.1</td><td>46.0</td><td>62.1</td><td>20.0</td><td>6.4</td></tr>
       <tr class="ours"><td>Backtracking (Ours)</td><td><b>82.1</b></td><td><b>48.4</b></td><td><b>67.7</b></td><td><b>23.3</b></td><td>37.8</td></tr>
     </tbody>
   </table></div>
@@ -270,6 +270,20 @@
 </figure>
 
 <p>Among the 156 successful corrections, arithmetic slips accounted for 41%, variable misattribution for 23%, logical inversions for 18%, premature conclusions for 12%, and unit conversion errors for 6%. The 13 regressions primarily occurred when the baseline arrived at the right answer through two cancelling errors; backtracking fixed the first error and exposed the second.</p>
+
+<h2 id="references" class="plain refs-head">References</h2>
+<ol class="refs">
+  <li id="ref-1">Karl Cobbe, Vineet Kosaraju, Mohammad Bavarian, et al. <a href="https://arxiv.org/abs/2110.14168">Training verifiers to solve math word problems</a>. <i>arXiv:2110.14168</i>, 2021.</li>
+  <li id="ref-2">Xuezhi Wang, Jason Wei, Dale Schuurmans, et al. <a href="https://arxiv.org/abs/2203.11171">Self-consistency improves chain of thought reasoning in language models</a>. <i>ICLR</i>, 2023.</li>
+  <li id="ref-3">Aman Madaan, Niket Tandon, Prakhar Gupta, et al. <a href="https://arxiv.org/abs/2303.17651">Self-Refine: Iterative refinement with self-feedback</a>. <i>NeurIPS</i>, 2023.</li>
+  <li id="ref-4">Noah Shinn, Federico Cassano, Edward Berman, et al. <a href="https://arxiv.org/abs/2303.11366">Reflexion: Language agents with verbal reinforcement learning</a>. <i>NeurIPS</i>, 2023.</li>
+  <li id="ref-5">DeepSeek-AI. <a href="https://arxiv.org/abs/2501.12948">DeepSeek-R1: Incentivizing reasoning capability in LLMs via reinforcement learning</a>. <i>arXiv:2501.12948</i>, 2025.</li>
+  <li id="ref-6">Yaniv Leviathan, Matan Kalman, and Yossi Matias. <a href="https://arxiv.org/abs/2211.17192">Fast inference from transformers via speculative decoding</a>. <i>ICML</i>, 2023.</li>
+  <li id="ref-7">Charlie Chen, Sebastian Borgeaud, Geoffrey Irving, et al. <a href="https://arxiv.org/abs/2302.01318">Accelerating large language model decoding with speculative sampling</a>. <i>arXiv:2302.01318</i>, 2023.</li>
+  <li id="ref-8">Dan Hendrycks, Collin Burns, Saurav Kadavath, et al. <a href="https://arxiv.org/abs/2103.03874">Measuring mathematical problem solving with the MATH dataset</a>. <i>NeurIPS Datasets and Benchmarks</i>, 2021.</li>
+  <li id="ref-9">Mark Chen, Jerry Tworek, Heewoo Jun, et al. <a href="https://arxiv.org/abs/2107.03374">Evaluating large language models trained on code</a>. <i>arXiv:2107.03374</i>, 2021.</li>
+  <li id="ref-10">Shunyu Yao, Dian Yu, Jeffrey Zhao, et al. <a href="https://arxiv.org/abs/2305.10601">Tree of Thoughts: Deliberate problem solving with large language models</a>. <i>NeurIPS</i>, 2023.</li>
+</ol>
 
 <div class="cite-head">
   <h2 id="cite" class="plain">Citation</h2>

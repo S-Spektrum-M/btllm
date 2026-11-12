@@ -711,6 +711,51 @@ input[type="range"]:hover::-webkit-slider-thumb { transform: scale(1.15); border
   .waffle { grid-template-columns: repeat(25, 1fr); gap: 2px; }
 }
 
+/* ---------- References ---------- */
+sup.ref {
+  font-size: .68em;
+  line-height: 0;
+  vertical-align: .55em;
+  margin-left: .08em;
+  font-variant-numeric: lining-nums;
+  letter-spacing: .02em;
+  color: var(--mute);
+}
+.sc + sup.ref { margin-left: -.06em; }
+sup.ref a { text-decoration: none; color: inherit; padding: 0 .05em; }
+sup.ref a:hover { color: var(--red); }
+h2.refs-head { margin: 2.8rem 0 .7rem; }
+.refs {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: ref;
+  font-size: .82rem;
+  line-height: 1.45;
+  color: var(--ink-2);
+  text-wrap: pretty;
+}
+.refs li {
+  counter-increment: ref;
+  position: relative;
+  padding-left: 1.9rem;
+  scroll-margin-top: 1.5rem;
+  transition: background-color .4s;
+}
+.refs li + li { margin-top: .4rem; }
+.refs li::before {
+  content: counter(ref) ".";
+  position: absolute;
+  left: 0;
+  width: 1.4rem;
+  text-align: right;
+  font-variant-numeric: lining-nums tabular-nums;
+  color: var(--mute);
+}
+.refs li:target { background: #efe9dd; }
+.refs a { color: var(--ink); }
+.refs a:hover { color: var(--red); }
+
 /* ---------- Citation ---------- */
 .cite-head {
   display: flex;
