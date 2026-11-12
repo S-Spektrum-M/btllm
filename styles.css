@@ -1,5 +1,16 @@
 /* Token-Level Backtracking */
 
+@font-face {
+  font-family: "Santa Cruz Mono";
+  src: url("fonts/SantaCruzMono-VF.woff2") format("woff2");
+  font-weight: 400 700; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Santa Cruz Mono";
+  src: url("fonts/SantaCruzMono-Italic.woff2") format("woff2");
+  font-weight: 400; font-style: italic; font-display: swap;
+}
+
 :root {
   --paper: #fbf9f4;
   --ink:   #1e1c19;
@@ -11,7 +22,7 @@
   --red:   #a5321f;
   --blue:  #26468c;
   --serif: "EB Garamond", "Garamond", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-  --mono:  "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --mono:  "Santa Cruz Mono", ui-monospace, Menlo, Consolas, monospace;
   --measure: 33em;
   color-scheme: light;
 }
