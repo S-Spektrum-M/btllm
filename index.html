@@ -6,6 +6,8 @@
 <title>Token-Level Backtracking for Corrective Reasoning in LLMs</title>
 <meta name="description" content="Token-Level Backtracking for Corrective Reasoning in LLMs. An inference-time mechanism that detects reasoning errors, verifies divergence with a draft model, and rewinds to the token where the error began.">
 <meta name="color-scheme" content="light only">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%23fbf9f4'/%3E%3Cpath d='M6 20 H16 C21 20 23 11 27 11' fill='none' stroke='%23a5321f' stroke-width='1.75' stroke-linecap='round' opacity='.45'/%3E%3Cpath d='M25 9 C20 4 16 6 15 16' fill='none' stroke='%238c8579' stroke-width='1.2' stroke-dasharray='1.5 2.5' stroke-linecap='round'/%3E%3Cpath d='M6 20 H15 C19 20 21 23 27 23' fill='none' stroke='%2326468c' stroke-width='2' stroke-linecap='round'/%3E%3Ccircle cx='15' cy='20' r='2.8' fill='%23fbf9f4' stroke='%231e1c19' stroke-width='1.6'/%3E%3Ccircle cx='27' cy='23' r='2.5' fill='%2326468c'/%3E%3C/svg%3E">
+<link rel="preload" href="fonts/SantaCruzMono-VF.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
@@ -17,12 +19,18 @@
   <h1>Token-Level Backtracking</h1>
   <p class="subtitle">for Corrective Reasoning in Large Language Models</p>
   <p class="byline">
-    <span class="who" title="University of California, Santa Cruz. smohant5@ucsc.edu">
-        <a href="mailto:smohant5@ucsc.edu">
-            Siddharth Mohanty
-        </a>
+    <span class="who">
+      <a href="mailto:smohant5@ucsc.edu">Siddharth Mohanty</a>
+      <span class="aff">University of California, Santa Cruz</span>
     </span>
   </p>
+  <nav class="links" aria-label="Document navigation">
+    <a href="./btllm.pdf">Paper (PDF)</a>
+    <a href="https://github.com/s-spektrum-M/backtracking">Code</a>
+    <a href="#demo">Interactive Trace</a>
+    <a href="#results">Results</a>
+    <a href="#cite">Citation</a>
+  </nav>
 </header>
 
 <figure class="hero wide" aria-label="Three decoding strategies compared: standard autoregressive decoding, full Monte Carlo tree search, and token-level backtracking">
@@ -41,36 +49,36 @@
 
 <p>On <span class="sc">GSM8K</span>, Llama&#8209;3.1&#8209;70B improves from 74.2% to 82.1% accuracy while retaining 88% of baseline throughput—without retraining, fine&#8209;tuning, or supervised verifiers.</p>
 
-<h2><span class="num">1.</span> Motivation</h2>
+<h2 id="motivation"><span class="num">1.</span> Motivation</h2>
 
 <p>Existing inference-time strategies such as beam search, self-consistency, and multi-pass reflection address errors retrospectively by sampling entire replacement trajectories or critiquing finished outputs. While reasoning models like DeepSeek-R1-Zero naturally learn under reinforcement learning to emit self-correction tokens (“Wait&hellip;”) mid-solution, standard decoding still leaves the erroneous tokens in context. Rather than generating more text to argue past a mistake, token-level backtracking deletes back to the error locus and resamples.</p>
 
 <figure class="contrast">
-  <p class="q">A baker makes 12 trays of 18 cookies. She sells &frac34; of them and gives 15 away. How many are left?</p>
+  <p class="q">“A baker makes 12 trays of 18 cookies. She sells &frac34; of them and gives 15 away. How many are left?”</p>
   <div class="cols">
     <div>
       <p class="col-h">Standard decoding</p>
       <ol class="eqs">
-        <li>12 × 18 = <b class="red">196</b></li>
-        <li class="inh">196 × ¾ = 147</li>
-        <li class="inh">196 − 147 = 49</li>
-        <li class="inh">49 − 15 = <b class="red">34</b></li>
+        <li>12 &times; 18 = <b class="red">196</b> <span class="eq-tag red">slip</span></li>
+        <li class="inh">196 &times; &frac34; = 147</li>
+        <li class="inh">196 &minus; 147 = 49</li>
+        <li class="inh">49 &minus; 15 = <b class="red">34</b></li>
       </ol>
     </div>
     <div>
       <p class="col-h">With backtracking</p>
       <ol class="eqs">
-        <li>12 × 18 = <s>196</s> <b class="blue">216</b></li>
-        <li>216 × ¾ = 162</li>
-        <li>216 − 162 = 54</li>
-        <li>54 − 15 = <b class="blue">39</b></li>
+        <li>12 &times; 18 = <s>196</s> <b class="blue">216</b> <span class="eq-tag blue">rewound</span></li>
+        <li>216 &times; &frac34; = 162</li>
+        <li>216 &minus; 162 = 54</li>
+        <li>54 &minus; 15 = <b class="blue">39</b></li>
       </ol>
     </div>
   </div>
   <figcaption><span class="fig">Figure 1.</span> An early arithmetic error propagates through every subsequent step in standard decoding (left). Backtracking truncates the polluting token and resamples from the checkpoint (right).</figcaption>
 </figure>
 
-<h2><span class="num">2.</span> Methodology</h2>
+<h2 id="methodology"><span class="num">2.</span> Methodology</h2>
 
 <p>We treat the token stream as a dynamic tree rather than a flat list. Most tokens are sound; a few are polluting nodes where reasoning becomes contradictory or uncertain.</p>
 
@@ -92,7 +100,7 @@
 <h3>Speculative Divergence Gate</h3>
 <p>Rolling back discards the KV cache for the abandoned path. Before committing to a rollback, we repurpose speculative decoding as a semantic probe: a small draft model generates a short lookahead from the candidate checkpoint, and we measure the cosine distance between the hidden representations of the draft branch and the current trajectory:</p>
 
-<p class="display"><i>d</i> = 1 &minus; cos(<i>h</i><sub>draft</sub>,&thinsp;<i>h</i><sub>current</sub>),&emsp;rewind only if <i>d</i> &gt; <i>&tau;</i></p>
+<p class="display"><span><i>d</i> = 1 &minus; cos(<i>h</i><sub>draft</sub>,&thinsp;<i>h</i><sub>current</sub>),&emsp;rewind only if <i>d</i> &gt; <i>&tau;</i></span><span class="eq-num">(1)</span></p>
 
 <p>If the alternative branch is merely a surface rephrasing (<i>d</i> &le; <i>&tau;</i>, with <i>&tau;</i> = 0.35 in our experiments), the rollback is aborted. This gate filters out roughly 73% of candidate triggers, preserving throughput.</p>
 
@@ -108,16 +116,19 @@
 
 <figure class="demo wide" id="demo">
   <div class="demo-top">
-    <p class="demo-q"><span class="sc">Problem.</span> A baker makes 12 trays of 18 cookies. She sells ¾ of them and gives 15 away. How many cookies are left?</p>
+    <p class="demo-q"><span class="sc">Problem.</span> <i>A baker makes 12 trays of 18 cookies. She sells &frac34; of them and gives 15 away. How many cookies are left?</i></p>
     <div class="controls">
       <button id="playBtn" type="button">Play</button>
       <button id="replayBtn" type="button">Replay</button>
-      <button id="speedBtn" type="button" aria-label="Playback speed">1×</button>
+      <button id="speedBtn" type="button" aria-label="Playback speed">1&times;</button>
     </div>
   </div>
 
   <div class="trace">
-    <div class="stream" id="stream" aria-hidden="true"><span class="caret" id="caret"></span></div>
+    <div class="stream-wrap">
+      <p class="stream-h"><span>generated token stream</span><span class="stream-legend"><i></i> entropy bar &middot; <u class="weak-u">weak node</u></span></p>
+      <div class="stream" id="stream" aria-hidden="true"><span class="caret" id="caret"></span></div>
+    </div>
     <aside class="sampler idle" id="sampler" aria-hidden="true">
       <p class="samp-h"><span>next-token candidates</span><span id="sampPos"></span></p>
       <ol class="samp" id="samp">
@@ -131,7 +142,7 @@
   </div>
 
   <div class="dead" id="deadWrap" hidden>
-    <p class="dead-label">Abandoned branch (inactive)</p>
+    <p class="dead-label">Abandoned branch (retained inactive in KV cache)</p>
     <div class="dead-toks" id="dead"></div>
   </div>
 
@@ -146,19 +157,19 @@
     </div>
   </div>
 
-  <figcaption><span class="fig">Figure 2.</span> Interactive decoding trace. At each step the model scores candidate next tokens and decoding commits to the most likely one; bars beneath tokens show the entropy of that distribution. A near-tie between the top two candidates marks a weak node. Pause and hover any token to inspect its candidates. The first trigger (“Actually,”) is rejected by the divergence gate as a trivial rephrasing; the second (“Wait,”) rewinds generation to the weak node at 196.</figcaption>
+  <figcaption><span class="fig">Figure 2.</span> Interactive decoding trace. At each step the model scores candidate next tokens and decoding commits to the most likely one; bars beneath tokens show the normalized entropy of that distribution. A near-tie between the top two candidates marks a weak node. Pause and hover or click any token to inspect its candidates. The first trigger (“Actually,”) is rejected by the divergence gate as a trivial rephrasing; the second (“Wait,”) rewinds generation to the weak node at 196.</figcaption>
 </figure>
 
 <section class="col prose">
 
-<h2><span class="num">3.</span> Results</h2>
+<h2 id="results"><span class="num">3.</span> Results</h2>
 
 <p>Across four mathematical and coding benchmarks, Token-Level Backtracking outperforms standard decoding and post-hoc correction baselines while maintaining 88% of standard autoregressive throughput. Gains are largest on <span class="sc">AIME</span>, where solutions require 10–15 chained steps and a single arithmetic slip invalidates the final answer.</p>
 
 <figure class="table">
   <figcaption><span class="fig">Table 1.</span> Accuracy (%) with Llama-3.1-70B (8B draft) and throughput (tokens/s) on a single H100 GPU.</figcaption>
   <div class="scroll"><table id="table1">
-    <thead><tr><th>Method</th><th><button class="th-tab" data-k="GSM8K" aria-pressed="true"><span class="sc">GSM8K</span></button></th><th><button class="th-tab" data-k="MATH" aria-pressed="false"><span class="sc">MATH</span></button></th><th><button class="th-tab" data-k="HumanEval" aria-pressed="false">HumanEval</button></th><th><button class="th-tab" data-k="AIME" aria-pressed="false"><span class="sc">AIME</span> ’24</button></th><th>Tok/s</th></tr></thead>
+    <thead><tr><th>Method</th><th><button class="th-tab" data-k="GSM8K" aria-pressed="true" type="button"><span class="sc">GSM8K</span></button></th><th><button class="th-tab" data-k="MATH" aria-pressed="false" type="button"><span class="sc">MATH</span></button></th><th><button class="th-tab" data-k="HumanEval" aria-pressed="false" type="button">HumanEval</button></th><th><button class="th-tab" data-k="AIME" aria-pressed="false" type="button"><span class="sc">AIME</span> ’24</button></th><th>Tok/s</th></tr></thead>
     <tbody>
       <tr><td>Standard decoding</td><td>74.2</td><td>41.6</td><td>61.0</td><td>13.3</td><td><b>42.7</b></td></tr>
       <tr><td>Self-consistency (<i>k</i> = 5)</td><td>78.6</td><td>45.2</td><td>63.4</td><td>16.7</td><td>9.1</td></tr>
@@ -183,13 +194,15 @@
 <p>Because the mechanism relies only on output logits and hidden-state cosine distances, it transfers across model families without modification. Evaluating across four model pairs yields consistent gains of 5.2–7.9 points on <span class="sc">GSM8K</span> and 4.9–6.8 points on HumanEval pass@1.</p>
 
 <figure class="chart" id="fig4">
+  <div class="db-head" aria-hidden="true"><span>Model pair</span><span>Baseline vs. Backtracking (%)</span><span>&Delta;</span></div>
   <div class="dumbbell" id="dumbbell"></div>
+  <div class="db-axis" id="dbAxis" aria-hidden="true"></div>
   <figcaption>
     <span class="fig">Figure 4.</span> Baseline <span class="key-base"></span> vs. backtracking <span class="key-bt"></span> accuracy across model families.
     <span class="switch" id="famSwitch" role="tablist" aria-label="Metric">
-      <button role="tab" aria-selected="true" data-k="gsm">gsm8k</button>
-      <button role="tab" aria-selected="false" data-k="math">math</button>
-      <button role="tab" aria-selected="false" data-k="p1">humaneval</button>
+      <button role="tab" aria-selected="true" data-k="gsm" type="button">gsm8k</button>
+      <button role="tab" aria-selected="false" data-k="math" type="button">math</button>
+      <button role="tab" aria-selected="false" data-k="p1" type="button">humaneval</button>
     </span>
   </figcaption>
 </figure>
@@ -203,22 +216,22 @@
     <tbody>
       <tr><td>None (baseline)</td><td>74.2</td><td>42.7</td><td>&mdash;</td><td>&mdash;</td></tr>
       <tr><td>Llama-3.2-1B</td><td>78.9</td><td>40.1</td><td>3.8</td><td>0.61</td></tr>
-      <tr class="ours"><td>Llama-3.1-8B</td><td>82.1</td><td>37.8</td><td>2.4</td><td>0.79</td></tr>
+      <tr class="ours"><td>Llama-3.1-8B</td><td><b>82.1</b></td><td><b>37.8</b></td><td>2.4</td><td>0.79</td></tr>
       <tr><td>Llama-3.1-70B (self)</td><td>83.0</td><td>22.4</td><td>1.9</td><td>0.86</td></tr>
     </tbody>
   </table></div>
 </figure>
 
-<h2><span class="num">4.</span> Ablations</h2>
+<h2 id="ablations"><span class="num">4.</span> Ablations</h2>
 
-<p>Removing the speculative divergence gate causes the decoder to rewind nearly 3× as often on surface-level rephrasings, reducing accuracy by 2.8 points and increasing latency by 31%. Removing the contrastive logit penalty drops accuracy by 2.1 points as the generator occasionally re-derives the same erroneous step. Removing weak-node checkpoints forces rollbacks to use a fixed token window that frequently overshoots or undershoots the error locus (&minus;3.3 points).</p>
+<p>Removing the speculative divergence gate causes the decoder to rewind nearly 3&times; as often on surface-level rephrasings, reducing accuracy by 2.8 points and increasing latency by 31%. Removing the contrastive logit penalty drops accuracy by 2.1 points as the generator occasionally re-derives the same erroneous step. Removing weak-node checkpoints forces rollbacks to use a fixed token window that frequently overshoots or undershoots the error locus (&minus;3.3 points).</p>
 
 <figure class="table">
   <figcaption><span class="fig">Table 3.</span> Ablation study on <span class="sc">GSM8K</span> (Llama-3.1-70B / 8B).</figcaption>
   <div class="scroll"><table>
     <thead><tr><th>Configuration</th><th>Accuracy</th><th>&Delta;</th><th>Rewinds / seq</th></tr></thead>
     <tbody>
-      <tr class="ours"><td>Full system</td><td>82.1</td><td></td><td>2.4</td></tr>
+      <tr class="ours"><td>Full system</td><td><b>82.1</b></td><td>&mdash;</td><td>2.4</td></tr>
       <tr><td>&minus; Speculative divergence gate</td><td>79.3</td><td class="red">&minus;2.8</td><td>7.1</td></tr>
       <tr><td>&minus; Contrastive logit penalty</td><td>80.0</td><td class="red">&minus;2.1</td><td>2.6</td></tr>
       <tr><td>&minus; Weak-node analysis</td><td>78.8</td><td class="red">&minus;3.3</td><td>3.9</td></tr>
@@ -242,40 +255,43 @@
   <figcaption><span class="fig">Figure 5.</span> Sensitivity to the divergence threshold <i>&tau;</i> on <span class="sc">GSM8K</span>. Accuracy <span class="key-line"></span> peaks at <i>&tau;</i>&nbsp;=&nbsp;0.35, while gate precision <span class="key-line dash"></span> increases monotonically.</figcaption>
 </figure>
 
-<h2><span class="num">5.</span> Error Analysis</h2>
+<h2 id="error-analysis"><span class="num">5.</span> Error Analysis</h2>
 
 <p>We manually categorized 200 <span class="sc">GSM8K</span> examples where backtracking changed the final answer relative to the baseline. Of these, 156 (78.0%) flipped an incorrect answer to correct, 31 (15.5%) reached the same correct answer via an alternative derivation, and 13 (6.5%) introduced a new error.</p>
 
 <figure class="chart" id="fig6">
   <div class="waffle" id="waffle" role="img" aria-label="156 corrected, 31 still correct by another path, 13 newly wrong"></div>
-  <figcaption><span class="fig">Figure 6.</span> Breakdown of 200 changed answers on <span class="sc">GSM8K</span>: <span class="blue">156 corrected</span>, <span class="grey">31 alternative correct path</span>, and <span class="red">13 regressions</span>.</figcaption>
+  <p class="waffle-meta" id="waffleMeta" aria-live="polite">
+    <span><i class="sw f"></i> <b class="blue">156 corrected</b> (78.0%)</span>
+    <span><i class="sw k"></i> <b>31 alternative path</b> (15.5%)</span>
+    <span><i class="sw h"></i> <b class="red">13 regressions</b> (6.5%)</span>
+  </p>
+  <figcaption><span class="fig">Figure 6.</span> Breakdown of 200 changed answers on <span class="sc">GSM8K</span>: <span class="blue">156 corrected</span> (41% arithmetic slips, 23% variable misattribution, 18% logical inversions, 12% premature conclusions, 6% unit conversions), <span class="grey">31 alternative correct path</span>, and <span class="red">13 regressions</span>.</figcaption>
 </figure>
 
 <p>Among the 156 successful corrections, arithmetic slips accounted for 41%, variable misattribution for 23%, logical inversions for 18%, premature conclusions for 12%, and unit conversion errors for 6%. The 13 regressions primarily occurred when the baseline arrived at the right answer through two cancelling errors; backtracking fixed the first error and exposed the second.</p>
 
-<h2 id="cite" class="plain">Citation</h2>
+<div class="cite-head">
+  <h2 id="cite" class="plain">Citation</h2>
+  <button type="button" class="copy-bib" id="copyBib" aria-label="Copy BibTeX" title="Copy BibTeX">
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <g class="copy-mark"><rect x="5" y="5" width="14" height="16" rx="2"/><rect x="9" y="3" width="6" height="4" rx="1" fill="var(--paper)"/></g>
+      <path class="copied-mark" d="m5 12 4 4L19 6"/>
+    </svg>
+    <span class="copy-label" id="copyLabel">Copy BibTeX</span>
+  </button>
+</div>
 
-<pre class="bib"><button type="button" class="copy-bib" id="copyBib" aria-label="Copy BibTeX" title="Copy BibTeX">
-  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <g class="copy-mark"><rect x="5" y="5" width="14" height="16" rx="2"/><rect x="9" y="3" width="6" height="4" rx="1" fill="var(--paper)"/></g>
-    <path class="copied-mark" d="m5 12 4 4L19 6"/>
-  </svg>
-</button><code id="bibtex">@article{mohanty2026backtracking,
-  title  = {Token-Level Backtracking for Corrective
-            Reasoning in LLMs},
-  author = {Mohanty, Siddharth},
-  year   = {2026}
+<pre class="bib"><code id="bibtex">@article{mohanty2026backtracking,
+  title   = {Token-Level Backtracking for Corrective Reasoning
+             in Large Language Models},
+  author  = {Mohanty, Siddharth},
+  year    = {2026},
+  note    = {University of California, Santa Cruz}
 }</code></pre>
 <span class="copy-status" id="copyStatus" role="status"></span>
 
 </section>
-
-<footer class="col">
-  <nav class="links" aria-label="Project resources">
-    <a href="https://github.com/s-spektrum-M/backtracking">GitHub</a>
-    <a href="./btllm.pdf">Paper (PDF)</a>
-  </nav>
-</footer>
 
 <script src="main.js"></script>
 </body>

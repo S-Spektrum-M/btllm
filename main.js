@@ -17,6 +17,26 @@
     io.observe(el);
   };
 
+  // Keyboard arrow navigation for role="tablist" groups
+  function bindTabKeys(container, onSelect) {
+    const getBtns = () => $$('button', container);
+    container.addEventListener('keydown', (e) => {
+      const list = getBtns();
+      const cur = list.indexOf(document.activeElement);
+      if (cur < 0) return;
+      let next = -1;
+      if (e.key === 'ArrowRight') next = (cur + 1) % list.length;
+      else if (e.key === 'ArrowLeft') next = (cur - 1 + list.length) % list.length;
+      else if (e.key === 'Home') next = 0;
+      else if (e.key === 'End') next = list.length - 1;
+      if (next >= 0) {
+        e.preventDefault();
+        list[next].focus();
+        onSelect(list[next], next);
+      }
+    });
+  }
+
   /* =========================================================
      Hero: standard AR, then full MCTS, then backtracking
      ========================================================= */
@@ -63,7 +83,7 @@
       draw(cont, 1000, 3600, 'linear');
       const at = (x) => 1000 + ((x - 330) / 620) * 3600;
       const nodes = [[330, 176], [445, 138], [590, 110], [710, 103], [830, 99]].map(([x, y]) => fadeIn(dot(x, y, 3, 'f-ink', g), at(x), 250));
-      const n196 = fadeIn(txt(330, 214, '196', 't-num', g), 1000);
+      const n196 = fadeIn(txt(330, 212, '196', 't-num', g), 1000);
       fadeIn(txt(650, 80, '“Wait,”', 't-mute t-trigger', g), at(650));
       // Only at the end does it become visible that the whole branch was wrong.
       const T = 5000;
@@ -86,7 +106,7 @@
     function sceneMCTS(g) {
       const roll = svg('g', {}, g), body = svg('g', {}, g);
       fadeIn(dot(...N.R, 3, 'f-ink', body), 0, 300);
-      const counter = txt(40, 22, '', 't-count', g, 'start');
+      const counter = txt(40, 24, '', 't-count', g, 'start');
       const step = 470;
       ITER.forEach(([p, c, ok], i) => {
         const t = 250 + i * step;
@@ -122,6 +142,8 @@
         const n = fadeIn(dot(x, y, 3, 'f-red', g), 1500 + i * 650, 300);
         fadeTo(n, 5200, 1200, 1, 0.2);
       });
+      const n196 = fadeIn(txt(445, 148, '196', 't-num t-red', g), 1500, 300);
+      fadeTo(n196, 5200, 1200, 1, 0.28);
       const x = svg('g', {}, g);
       cross(790, 58, 7, 's-red', x);
       txt(810, 64, '“Wait,”', 't-red t-trigger', x, 'start');
@@ -129,18 +151,19 @@
       fadeTo(x, 5300, 1200, 1, 0.22);
       const arc = svg('g', {}, g);
       P('M780 44 C 650 -6, 400 20, 342 160', 's-mute dashed', arc);
-      txt(540, 20, 'rewind', 't-mute t-arc', arc);
+      txt(540, 22, 'rewind to weak node', 't-mute t-arc', arc);
       fadeIn(arc, 4100, 600);
-      fadeTo(arc, 6100, 800, 1, 0);
+      fadeTo(arc, 6100, 800, 1, still ? 0.65 : 0);
       const good = P('M330 176 C 440 176, 500 206, 620 206 S 830 196, 960 192', 's-blue', g);
       draw(good, 6200, 2600);
       [[460, 194], [620, 206], [790, 199]].forEach(([x, y], i) => fadeIn(dot(x, y, 3, 'f-blue', g), 6600 + i * 700, 300));
+      fadeIn(txt(460, 226, '216', 't-num t-blue', g), 6700, 350);
       fadeIn(dot(960, 192, 4.5, 'f-blue', g), 8700);
       fadeIn(txt(960, 230, '39', 't-num t-blue', g), 8750);
       const weak = svg('g', {}, g);
       dot(330, 176, 12, 'halo', weak);
       const ring = dot(330, 176, 6, 'ring', weak);
-      txt(330, 222, 'weak node', '', weak);
+      txt(330, 212, 'weak node', 't-trigger', weak);
       fadeIn(weak, 900, 400);
       anim(ring, [{ transform: 'scale(1)' }, { transform: 'scale(1.7)' }, { transform: 'scale(1)' }], 4800, 700, 'none');
     }
@@ -148,7 +171,7 @@
     const SCENES = [
       { f: sceneAR, dur: 7800, cap: '<b>Standard decoding</b> commits to every token. The slip at 196 stays in context, the model writes “Wait,” and carries on anyway, and the error propagates to 34.' },
       { f: sceneMCTS, dur: 10200, cap: '<b>Full tree search</b> expands branch after branch and rolls each one out to a finished answer. It finds 39, but only after 13 complete continuations.' },
-      { f: sceneBT, dur: 10600, cap: '<b>Token-level backtracking</b> catches the “Wait,”, rewinds only as far as the weak node at 196, and resamples once. It reaches 39 at 88% of baseline throughput.' },
+      { f: sceneBT, dur: 10600, cap: '<b>Token-level backtracking</b> catches “Wait,”, rewinds only as far as the weak node where 196 was chosen, and resamples 216. It reaches 39 at 88% of baseline throughput.' },
     ];
 
     function stop() {
@@ -172,6 +195,7 @@
       }, s.dur);
     }
     btns.forEach((b, i) => b.addEventListener('click', () => show(i)));
+    bindTabKeys($('#heroTabs'), (_, i) => show(i));
 
     // Restart the current scene when the hero scrolls back into view.
     let seen = false;
@@ -400,7 +424,7 @@
     setPlaying(false);
   }
 
-  // When paused, hovering a token shows the distribution it was picked from.
+  // When paused, hovering or clicking a token shows the distribution it was picked from.
   function inspect(e) {
     if (!paused || !started) return;
     const t = e.target.closest('.tok');
@@ -446,7 +470,7 @@
   };
   const sc = $('#scatter');
   const M = { l: 52, r: 24, t: 34, b: 56 };
-  let W = 900, H = 380, dom = [0, 1], cur = 'GSM8K', pts = [], yG, guide, guideH, hov = -1;
+  let W = 900, H = 380, dom = [0, 1], cur = 'GSM8K', pts = [], yG, guide, guideH, gainLink, hov = -1;
   const xS = (v) => M.l + (v / 45) * (W - M.l - M.r);
   const yS = (v) => H - M.b - ((v - dom[0]) / (dom[1] - dom[0])) * (H - M.t - M.b);
 
@@ -461,14 +485,13 @@
       svg('line', { class: 'axis', x1: xS(v), x2: xS(v), y1: H - M.b, y2: H - M.b + 5 }, sc);
       svg('text', { class: 'tlab', x: xS(v), y: H - M.b + 22, 'text-anchor': 'middle' }, sc).textContent = v;
     });
-    svg('text', { class: 'alab', x: W - M.r, y: H - 10, 'text-anchor': 'end' }, sc).textContent = 'tokens per second';
-    svg('text', { class: 'alab', x: M.l - 40, y: M.t - 16 }, sc).textContent = 'Accuracy, %';
-    // Hover guides: dashed lines from the hovered point to both axes. The group
-    // rides the same transform as the point; the vertical line runs long and is
-    // clipped at the x-axis, so it stays correct while the point animates.
+    svg('text', { class: 'alab', x: W - M.r, y: H - 10, 'text-anchor': 'end' }, sc).textContent = 'Throughput (tokens / second)';
+    svg('text', { class: 'alab', x: M.l - 40, y: M.t - 16 }, sc).textContent = 'Accuracy (%)';
+    // Hover guides: dashed lines from the hovered point to both axes.
     const defs = svg('defs', {}, sc);
     const cp = svg('clipPath', { id: 'scClip' }, defs);
     svg('rect', { x: M.l, y: 0, width: W - M.l - M.r, height: H - M.b }, cp);
+    gainLink = svg('line', { class: 'gain-link' }, sc);
     guide = svg('g', { class: 'pt-g guide' }, svg('g', { 'clip-path': 'url(#scClip)' }, sc));
     guideH = svg('line', { y1: 0, y2: 0, x2: 0 }, guide);
     svg('line', { x1: 0, x2: 0, y1: 0, y2: H }, guide);
@@ -505,13 +528,14 @@
   }
 
   const T1COL = { GSM8K: 1, MATH: 2, HumanEval: 3, AIME: 4 };
-  function markTable(key) {
+  function syncBenchmarkControls(key) {
     $$('#table1 tr').forEach((tr) => [...tr.children].forEach((c, j) => c.classList.toggle('active-col', j === T1COL[key])));
+    $$('#table1 .th-tab').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.k === key)));
   }
 
   function drawScatter(key) {
     cur = key;
-    markTable(key);
+    syncBenchmarkControls(key);
     const v = T1[key];
     const span = Math.max(...v) - Math.min(...v);
     const step = span > 12 ? 4 : 2;
@@ -528,8 +552,14 @@
     });
     pts.forEach((p, i) => {
       p.g.style.transform = `translate(${xS(T1.tok[i])}px, ${yS(v[i])}px)`;
-      p.val.textContent = `${v[i].toFixed(1)}  ·  ${T1.tok[i]} tok/s`;
+      p.val.textContent = `${v[i].toFixed(1)}%  ·  ${T1.tok[i]} tok/s`;
     });
+    if (gainLink) {
+      gainLink.setAttribute('x1', xS(T1.tok[0]));
+      gainLink.setAttribute('y1', yS(v[0]));
+      gainLink.setAttribute('x2', xS(T1.tok[4]));
+      gainLink.setAttribute('y2', yS(v[4]));
+    }
     if (hov >= 0) guide.style.transform = pts[hov].g.style.transform;
   }
   buildScatter();
@@ -544,11 +574,13 @@
       $$('button', el).forEach((x) => x.setAttribute('aria-selected', String(x === b)));
       cb(b.dataset.k);
     });
+    bindTabKeys(el, (b) => {
+      $$('button', el).forEach((x) => x.setAttribute('aria-selected', String(x === b)));
+      cb(b.dataset.k);
+    });
   }
-  // Table 1's benchmark headers double as Figure 3's switcher.
   $('#table1 thead').addEventListener('click', (e) => {
     const b = e.target.closest('.th-tab'); if (!b) return;
-    $$('#table1 .th-tab').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
     drawScatter(b.dataset.k);
   });
 
@@ -557,9 +589,9 @@
      ========================================================= */
   const FAM = [
     { n: 'Llama-3.1', p: '70B with 8B draft', gsm: [74.2, 82.1], math: [41.6, 48.4], p1: [61.0, 67.7] },
-    { n: 'Mistral-Large-2', p: '123B with 7B', gsm: [79.8, 85.3], math: [47.2, 53.1], p1: [64.6, 69.5] },
-    { n: 'Qwen-2.5', p: '72B with 7B', gsm: [82.4, 87.6], math: [49.8, 55.4], p1: [71.3, 76.2] },
-    { n: 'Gemma-2', p: '27B with 2B', gsm: [68.1, 74.9], math: [34.2, 40.7], p1: [51.8, 58.5] },
+    { n: 'Mistral-Large-2', p: '123B with 7B draft', gsm: [79.8, 85.3], math: [47.2, 53.1], p1: [64.6, 69.5] },
+    { n: 'Qwen-2.5', p: '72B with 7B draft', gsm: [82.4, 87.6], math: [49.8, 55.4], p1: [71.3, 76.2] },
+    { n: 'Gemma-2', p: '27B with 2B draft', gsm: [68.1, 74.9], math: [34.2, 40.7], p1: [51.8, 58.5] },
   ];
   const rows = FAM.map((f) => {
     const r = document.createElement('div');
@@ -570,6 +602,7 @@
     $('#dumbbell').appendChild(r);
     return { f, line: $('.db-line', r), base: $('.db-dot.base', r), bt: $('.db-dot.bt', r), delta: $('.db-delta', r) };
   });
+  const dbAxis = $('#dbAxis');
   function drawFam(k) {
     const all = FAM.flatMap((f) => f[k]);
     const lo = Math.floor((Math.min(...all) - 4) / 5) * 5, hi = Math.ceil((Math.max(...all) + 2) / 5) * 5;
@@ -584,6 +617,14 @@
       bt.firstChild.textContent = b.toFixed(1);
       delta.textContent = '+' + (b - a).toFixed(1);
     });
+    if (dbAxis) {
+      const step = (hi - lo) > 25 ? 10 : 5;
+      let ticksHtml = '';
+      for (let v = lo; v <= hi; v += step) {
+        ticksHtml += `<span class="db-tick" style="left:${pc(v)}%">${v}%</span>`;
+      }
+      dbAxis.innerHTML = `<div class="db-axis-track">${ticksHtml}</div>`;
+    }
   }
   drawFam('gsm');
   tabs($('#famSwitch'), drawFam);
@@ -599,10 +640,12 @@
     { t: 0.55, acc: 77.1, tok: 41.3, bt: 0.6, prec: 0.93, note: 'Over-strict: rarely triggers rollbacks.' },
   ];
   const tc = $('#tauChart');
-  const TW = 360, TH = 210, TM = { l: 34, r: 34, t: 22, b: 34 };
+  const TW = 360, TH = 210, TM = { l: 38, r: 36, t: 26, b: 34 };
   const tx = (i) => TM.l + 10 + (i / 4) * (TW - TM.l - TM.r - 20);
   const yA = (v) => TH - TM.b - ((v - 76) / (84 - 76)) * (TH - TM.t - TM.b);
   const yP = (v) => TH - TM.b - ((v - 0.4) / (1 - 0.4)) * (TH - TM.t - TM.b);
+  svg('text', { class: 'ax-lbl acc', x: TM.l - 6, y: 13, 'text-anchor': 'start' }, tc).textContent = 'Accuracy';
+  svg('text', { class: 'ax-lbl prec', x: TW - TM.r + 6, y: 13, 'text-anchor': 'end' }, tc).textContent = 'Precision';
   [76, 80, 84].forEach((v) => {
     svg('line', { class: 'gl', x1: TM.l, x2: TW - TM.r, y1: yA(v), y2: yA(v) }, tc);
     svg('text', { x: TM.l - 8, y: yA(v) + 4, 'text-anchor': 'end' }, tc).textContent = v + '%';
@@ -612,7 +655,7 @@
   });
   svg('line', { class: 'axis', x1: TM.l, x2: TW - TM.r, y1: TH - TM.b, y2: TH - TM.b }, tc);
   TAUS.forEach((d, i) => (svg('text', { x: tx(i), y: TH - 12, 'text-anchor': 'middle' }, tc).textContent = d.t.toFixed(2)));
-  const marker = svg('line', { class: 'marker', x1: 0, x2: 0, y1: TM.t - 8, y2: TH - TM.b }, tc);
+  const marker = svg('line', { class: 'marker', x1: 0, x2: 0, y1: TM.t - 6, y2: TH - TM.b }, tc);
   svg('path', { class: 'l-prec', d: 'M' + TAUS.map((d, i) => `${tx(i)} ${yP(d.prec)}`).join(' L') }, tc);
   svg('path', { class: 'l-acc', d: 'M' + TAUS.map((d, i) => `${tx(i)} ${yA(d.acc)}`).join(' L') }, tc);
   const dP = svg('circle', { class: 'd-prec', r: 3.5 }, tc);
@@ -622,7 +665,7 @@
   function drawTau(i) {
     const d = TAUS[i];
     $('#tauOut').textContent = d.t.toFixed(2);
-    $('#tauRead').innerHTML = `<b>${d.acc.toFixed(1)}%</b> accuracy &middot; <b>${d.tok.toFixed(1)}</b> tok/s &middot; <b>${d.bt.toFixed(1)}</b> rewinds/seq &middot; <b>${d.prec.toFixed(2)}</b> precision<br>${d.note}`;
+    $('#tauRead').innerHTML = `<b>${d.acc.toFixed(1)}%</b> accuracy &middot; <b>${d.tok.toFixed(1)}</b> tok/s &middot; <b>${d.bt.toFixed(1)}</b> rewinds/seq &middot; <b>${d.prec.toFixed(2)}</b> precision<span class="tau-note">${d.note}</span>`;
     marker.style.transform = `translateX(${tx(i)}px)`;
     dA.setAttribute('cx', tx(i)); dA.setAttribute('cy', yA(d.acc));
     dP.setAttribute('cx', tx(i)); dP.setAttribute('cy', yP(d.prec));
@@ -637,12 +680,32 @@
   const frag = document.createDocumentFragment();
   for (let i = 0; i < 200; i++) {
     const s = document.createElement('i');
-    s.className = i < 156 ? 'f' : i < 187 ? 'k' : 'h';
-    s.style.transitionDelay = i * 6 + 'ms';
+    const cls = i < 156 ? 'f' : i < 187 ? 'k' : 'h';
+    s.className = cls;
+    s.dataset.cat = cls;
+    s.style.transitionDelay = i * 5 + 'ms';
     frag.appendChild(s);
   }
   wf.appendChild(frag);
   onView(wf, () => wf.classList.add('in'), 0.5);
+
+  const wfCells = $$('i', wf);
+  const highlightCat = (cat) => {
+    wfCells.forEach((c) => {
+      c.style.transitionDelay = '0ms';
+      c.classList.toggle('hi', Boolean(cat && c.dataset.cat === cat));
+    });
+  };
+  wf.addEventListener('mouseover', (e) => {
+    const cell = e.target.closest('i');
+    if (cell) highlightCat(cell.dataset.cat);
+  });
+  wf.addEventListener('mouseleave', () => highlightCat(null));
+  $$('#waffleMeta span').forEach((sp, idx) => {
+    const cat = ['f', 'k', 'h'][idx];
+    sp.addEventListener('mouseenter', () => highlightCat(cat));
+    sp.addEventListener('mouseleave', () => highlightCat(null));
+  });
 
   /* ---------- Citation ---------- */
   // navigator.clipboard only exists in secure contexts (HTTPS / localhost);
@@ -666,6 +729,7 @@
   let copyReset;
   $('#copyBib').addEventListener('click', async (e) => {
     const b = e.currentTarget;
+    const lbl = $('#copyLabel');
     clearTimeout(copyReset);
     b.classList.remove('copied');
     let message;
@@ -674,6 +738,7 @@
       b.focus({ preventScroll: true });
       b.classList.add('copied');
       message = 'BibTeX copied';
+      if (lbl) lbl.textContent = 'Copied';
     } catch {
       message = 'Unable to copy. Select the citation text to copy it.';
     }
@@ -684,6 +749,7 @@
       b.classList.remove('copied');
       b.title = 'Copy BibTeX';
       b.setAttribute('aria-label', 'Copy BibTeX');
+      if (lbl) lbl.textContent = 'Copy BibTeX';
       $('#copyStatus').textContent = '';
     }, 2000);
   });
